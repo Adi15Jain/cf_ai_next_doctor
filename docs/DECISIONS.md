@@ -27,3 +27,31 @@ Context: A Worker cannot run Node or `next build` (no child processes; CPU limit
 Decision: Checks read repository files (`package.json`, `next.config.*`, `wrangler.*`, `open-next.config.ts`, source) and pasted error logs. 14 of the 18 evidenced failure types are detectable this way.
 Alternatives: Run real builds in Cloudflare Sandboxes/Containers (accurate, but heavier, slower, and paid-plan features; a "with more time" extension).
 Consequences: Build-only failures (e.g. startup CPU limit) are detected from logs, not predicted.
+
+## 2026-10-15 — Every rule carries its evidence, enforced by the type system
+
+Context: A doctor that invents rules is worse than none; Cloudflare reviewers will check the claims.
+Decision: `FailureEntry.issueUrls` is typed `readonly [string, ...string[]]`, so an entry without a GitHub issue does not compile; a test checks every URL's shape. All 43 cited issues and every doc URL were fetched before writing the rule.
+Alternatives: A free-form list (an empty array would slip through review).
+Consequences: Some real failures (wrong `main`/`assets` paths) are left out until an issue documents them.
+
+## 2026-10-15 — Release notes beat doc pages when they disagree
+
+Context: The OpenNext overview still says "Node Middleware … not yet supported", but PR #1309 added `proxy.ts` support in `@opennextjs/cloudflare` 1.20.3 (2026-08-26).
+Decision: The proxy check is version-aware: it warns only when package.json allows an adapter below 1.20.3. Its doc link is the release note.
+Alternatives: Trust the overview page (would flag working apps); drop the check (loses a real failure for older adapters).
+Consequences: Uses the lowest version in the declared range, so `^1.19.0` warns even if the lockfile resolves 1.20.x. Hence a warning, not an error.
+
+## 2026-10-15 — Brace-depth scan instead of a JavaScript parser for module-scope checks
+
+Context: Two checks need to know whether a line runs at module load (a database client created there breaks across requests).
+Decision: One pass over the text tracks `{ }` depth while skipping strings, template literals and comments: O(n) time, O(lines) space, ~40 lines of code.
+Alternatives: The TypeScript compiler API or a parser such as acorn: exact, but megabytes of bundle in a Worker with a 1 s startup limit, and slower per file.
+Consequences: Heuristic misses (e.g. a multi-line arrow function without braces) are possible, so these findings are warnings. Tests pin the cases it must get right.
+
+## 2026-10-15 — Add smol-toml for wrangler.toml
+
+Context: next-on-pages and older OpenNext repos use `wrangler.toml`; the checks need its bindings and migrations.
+Decision: Add `smol-toml` (BSD-3-Clause, no dependencies). JSONC is handled by a 30-line string-aware stripper instead of a library.
+Alternatives: Regex-scrape TOML (breaks on arrays of tables like `[[migrations]]`); skip TOML repos (loses the deprecated-adapter audience).
+Consequences: One runtime dependency. Wrangler's own lookup order (json, jsonc, toml) is copied from its source.

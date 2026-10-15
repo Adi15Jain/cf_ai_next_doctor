@@ -67,6 +67,14 @@ _The file became the global coding rules; this repository's `CLAUDE.md` fills in
 > Include Vectorize semantic log matching and a KV flag in v1, or leave for v2? — v2, after the core works
 > Demo target? — Yes, I'll give you the URL
 
+**Prompt 12** (after step 1 was committed)
+
+> Proceed with step 2 (knowledge base + checks + tests, pure code, no network)? — Yes, go ahead
+
+**Prompt 13** (after switching the model from Claude Fable 5.1 to Claude Opus 5.5)
+
+> continue
+
 ## Part 2 — Research prompts Claude delegated to sub-agents
 
 These were written by Claude, not the candidate, and are included because they produced

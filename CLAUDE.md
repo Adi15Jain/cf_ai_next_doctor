@@ -14,8 +14,9 @@ The global rules in `~/.claude/CLAUDE.md` apply. This file fills in the project 
 - Entry points and layout: `src/server.ts` = Worker entry (agent class, fetch handler,
   workflow export); `src/app.tsx` = chat UI; `src/checks/` = pure static checks over an
   in-memory file map; `src/knowledge/` = failure knowledge base (signal, fix, doc URL,
-  issue URLs); `src/github/` = repository fetching and tar parsing; `src/workflows/` =
-  Cloudflare Workflow classes; `tests/` = vitest; `docs/DECISIONS.md` = decision log;
+  issue URLs); `src/log-match.ts` = pasted error log → knowledge-base matches; `src/github/` = repository
+  fetching and tar parsing; `src/workflows/` =
+  Cloudflare Workflow classes; `tests/` = vitest (`tests/fixtures.ts` builds snapshots); `docs/DECISIONS.md` = decision log;
   `PROMPTS.md` = AI prompt history required by the assignment.
 
 ## Project rules
