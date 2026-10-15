@@ -75,6 +75,10 @@ _The file became the global coding rules; this repository's `CLAUDE.md` fills in
 
 > continue
 
+**Prompt 14** (after step 2 was committed)
+
+> Proceed with step 3 (fetch a public GitHub repo as one tarball, parse it in the Worker, feed the snapshot to the checks)? — Yes, include the version check
+
 ## Part 2 — Research prompts Claude delegated to sub-agents
 
 These were written by Claude, not the candidate, and are included because they produced

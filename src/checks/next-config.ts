@@ -1,8 +1,9 @@
 import type { Finding } from "./finding";
 import type { RepoSnapshot } from "./repo-snapshot";
-import type { SourceFile } from "./source-file";
+import { withoutComments, type SourceFile } from "./source-file";
 
 const DEV_INIT_CALL = /\binitOpenNextCloudflareForDev\s*\(/;
+const CLOUDFLARE_CONTEXT_CALL = /\bgetCloudflareContext\s*\(/;
 const SERVER_EXTERNAL_PACKAGES_ARRAY =
   /serverExternalPackages\s*:\s*\[([^\]]*)\]/;
 const QUOTED_NAME = /["'`]([^"'`]+)["'`]/g;
@@ -19,7 +20,10 @@ const WORKERD_SPECIFIC_PACKAGES: ReadonlyMap<string, readonly string[]> =
     ["react-textarea-autosize", ["react-textarea-autosize"]]
   ]);
 
-/** OpenNext needs next.config to call initOpenNextCloudflareForDev(). */
+/**
+ * OpenNext needs next.config to call initOpenNextCloudflareForDev() before code may call
+ * getCloudflareContext(). Reported only when the app calls it, the failure issue #317 shows.
+ */
 export function checkDevInit(snapshot: RepoSnapshot): Finding[] {
   const config = snapshot.nextConfig;
   if (
@@ -27,15 +31,20 @@ export function checkDevInit(snapshot: RepoSnapshot): Finding[] {
     (config && DEV_INIT_CALL.test(config.text))
   )
     return [];
+  const caller = snapshot.serverFiles.find((file) =>
+    CLOUDFLARE_CONTEXT_CALL.test(withoutComments(file.text))
+  );
+  if (!caller) return [];
+  const gap = config
+    ? `${config.path} never calls initOpenNextCloudflareForDev()`
+    : "there is no next.config file";
   return [
     {
       failureId: "dev-init-missing",
       severity: "warning",
       file: config?.path ?? null,
       line: null,
-      evidence: config
-        ? `${config.path} never calls initOpenNextCloudflareForDev()`
-        : "the repository has no next.config file"
+      evidence: `${caller.path} calls getCloudflareContext(), but ${gap}`
     }
   ];
 }

@@ -25,6 +25,34 @@ export function firstLineMatching(
 }
 
 /**
+ * `text` with `//` and `/* *\/` comments blanked to spaces. Newlines are kept, so line
+ * numbers still match the original. String-aware: "https://…" in quotes survives. O(n).
+ */
+export function withoutComments(text: string): string {
+  let output = "";
+  let index = 0;
+  while (index < text.length) {
+    const char = text[index];
+    const next = text[index + 1];
+    let end = index + 1;
+    if (char === '"' || char === "'" || char === "`") {
+      end = endOfQuoted(text, index, char !== "`");
+    } else if (char === "/" && next === "/") {
+      const newline = text.indexOf("\n", index);
+      end = newline === -1 ? text.length : newline;
+    } else if (char === "/" && next === "*") {
+      const close = text.indexOf("*/", index + 2);
+      end = close === -1 ? text.length : close + 2;
+    }
+    const chunk = text.slice(index, end);
+    output +=
+      char === "/" && end > index + 1 ? chunk.replace(/[^\n]/g, " ") : chunk;
+    index = end;
+  }
+  return output;
+}
+
+/**
  * Index just past the string literal that opens at `start`, honouring backslash escapes.
  * With `stopAtNewline`, an unterminated '…' or "…" ends at the newline, which limits the
  * damage when a quote inside a regex literal is mistaken for the start of a string.

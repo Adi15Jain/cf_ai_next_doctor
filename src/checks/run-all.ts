@@ -1,5 +1,10 @@
+import type { OpenNextRelease } from "../npm/opennext-release";
 import { checkCacheBindings, checkIsrQueue } from "./opennext-cache";
-import { checkNativeAddons, checkProxyAdapterVersion } from "./dependencies";
+import {
+  checkNativeAddons,
+  checkNextVersionSupported,
+  checkProxyAdapterVersion
+} from "./dependencies";
 import type { Finding, Severity } from "./finding";
 import { checkDevInit, checkWorkerdPackages } from "./next-config";
 import type { RepoSnapshot } from "./repo-snapshot";
@@ -10,7 +15,11 @@ import {
 } from "./source-code";
 import { checkNodejsCompat, checkWeakRefAvailability } from "./wrangler-config";
 
-type Check = (snapshot: RepoSnapshot) => Finding[];
+// Checks that only read the repository simply ignore the registry facts.
+type Check = (
+  snapshot: RepoSnapshot,
+  openNextReleases: readonly OpenNextRelease[]
+) => Finding[];
 
 const CHECKS: readonly Check[] = [
   checkNodejsCompat,
@@ -19,6 +28,7 @@ const CHECKS: readonly Check[] = [
   checkWorkerdPackages,
   checkNativeAddons,
   checkProxyAdapterVersion,
+  checkNextVersionSupported,
   checkEdgeRuntime,
   checkModuleScopeIo,
   checkModuleScopeCloudflareContext,
@@ -28,9 +38,17 @@ const CHECKS: readonly Check[] = [
 
 const SEVERITY_RANK: Record<Severity, number> = { error: 0, warning: 1 };
 
-/** Runs every check; errors first, then by file and line. O(total file size + k log k). */
-export function runAllChecks(snapshot: RepoSnapshot): Finding[] {
-  return CHECKS.flatMap((check) => check(snapshot)).sort(compareFindings);
+/**
+ * Runs every check; errors first, then by file and line. O(total file size + k log k).
+ * `openNextReleases` are the adapter releases package.json allows (from npm); empty skips the version check.
+ */
+export function runAllChecks(
+  snapshot: RepoSnapshot,
+  openNextReleases: readonly OpenNextRelease[]
+): Finding[] {
+  return CHECKS.flatMap((check) => check(snapshot, openNextReleases)).sort(
+    compareFindings
+  );
 }
 
 function compareFindings(left: Finding, right: Finding): number {

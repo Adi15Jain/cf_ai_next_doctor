@@ -59,6 +59,14 @@ describe("checkModuleScopeIo", () => {
     );
   });
 
+  it("ignores HTTP-based clients such as Upstash Redis, which are safe at module scope", () => {
+    const redis =
+      'import { Redis } from "@upstash/redis";\nexport const redis = new Redis({ url, token });\n';
+    expect(checkModuleScopeIo(openNextApp({ "lib/redis.ts": redis }))).toEqual(
+      []
+    );
+  });
+
   it("ignores a client created inside a function", () => {
     const db =
       "export function getDb() {\n  return new Pool({ connectionString: url });\n}\n";

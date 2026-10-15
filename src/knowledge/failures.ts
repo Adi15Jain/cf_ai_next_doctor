@@ -167,11 +167,11 @@ export const FAILURES = {
     logPatterns: [/referenced the class "(?:DOQueueHandler|DOShardedTagCache)"/]
   },
 
-  "adapter-older-than-next": {
-    title: "Next.js is newer than the adapter supports",
+  "next-version-unsupported": {
+    title: "Next.js version outside the adapter's supported range",
     whyItBreaks:
-      "OpenNext patches Next.js internals that change between minor releases. An adapter older than your Next.js version can build successfully, then crash every request with Error 1101.",
-    fix: "Upgrade `@opennextjs/cloudflare` to the latest release, or pin `next` inside the adapter's peer range (`npm view @opennextjs/cloudflare peerDependencies`).",
+      "OpenNext patches Next.js internals that change between releases, and each adapter release declares the Next.js versions it supports. Outside that range the app can build successfully, then crash every request with Error 1101.",
+    fix: "Upgrade `@opennextjs/cloudflare` to the latest release, or change `next` to a version inside the range that release supports (`npm view @opennextjs/cloudflare peerDependencies`).",
     docUrl: "https://opennext.js.org/cloudflare",
     issueUrls: [
       "https://github.com/opennextjs/opennextjs-cloudflare/issues/1049",

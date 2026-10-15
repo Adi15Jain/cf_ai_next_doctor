@@ -44,6 +44,22 @@ describe("checkIsrQueue", () => {
       )
     ).toEqual([]);
   });
+
+  it("treats a fetch-level revalidate as a warning, since it may only touch the data cache", () => {
+    const page =
+      "const data = await fetch(url, { next: { revalidate: 3600 } });";
+    expect(checkIsrQueue(openNextApp({ "app/page.tsx": page }))).toMatchObject([
+      { severity: "warning" }
+    ]);
+  });
+
+  it("ignores stale-while-revalidate in a Cache-Control header", () => {
+    const route =
+      "const CACHE = 'public, max-age=30, stale-while-revalidate=120';";
+    expect(checkIsrQueue(openNextApp({ "app/api/route.ts": route }))).toEqual(
+      []
+    );
+  });
 });
 
 describe("checkCacheBindings", () => {
@@ -74,9 +90,21 @@ describe("checkCacheBindings", () => {
     );
     expect(evidence).toEqual([
       "open-next.config.ts uses r2IncrementalCache, which needs an r2_buckets binding named NEXT_INC_CACHE_R2_BUCKET",
-      "open-next.config.ts uses r2IncrementalCache, which needs a services binding named WORKER_SELF_REFERENCE",
-      "open-next.config.ts uses doQueue, which needs a durable_objects binding and a migration for class DOQueueHandler"
+      "open-next.config.ts uses doQueue, which needs a durable_objects binding and a migration for class DOQueueHandler",
+      "open-next.config.ts uses doQueue, which needs a services binding named WORKER_SELF_REFERENCE"
     ]);
+  });
+
+  it("does not require WORKER_SELF_REFERENCE for the R2 cache alone", () => {
+    const snapshot = openNextApp({
+      "open-next.config.ts": R2_ONLY_CONFIG,
+      "wrangler.jsonc": wranglerJsonc({
+        r2_buckets: [
+          { binding: "NEXT_INC_CACHE_R2_BUCKET", bucket_name: "cache" }
+        ]
+      })
+    });
+    expect(checkCacheBindings(snapshot)).toEqual([]);
   });
 
   it("requires the Durable Object migration, not just the binding", () => {
@@ -96,5 +124,33 @@ describe("checkCacheBindings", () => {
       "wrangler.jsonc": withoutMigration
     });
     expect(checkCacheBindings(snapshot)).toHaveLength(1);
+  });
+
+  it("ignores overrides that are commented out", () => {
+    const commentedOut = `export default defineCloudflareConfig({
+  // incrementalCache: r2IncrementalCache,
+  /* queue: doQueue, */
+});`;
+    const snapshot = openNextApp({
+      "open-next.config.ts": commentedOut,
+      "wrangler.jsonc": "{}"
+    });
+    expect(checkCacheBindings(snapshot)).toEqual([]);
+  });
+
+  it("counts bindings declared only in an env section", () => {
+    const snapshot = openNextApp({
+      "open-next.config.ts": R2_ONLY_CONFIG,
+      "wrangler.jsonc": wranglerJsonc({
+        env: {
+          production: {
+            r2_buckets: [
+              { binding: "NEXT_INC_CACHE_R2_BUCKET", bucket_name: "cache" }
+            ]
+          }
+        }
+      })
+    });
+    expect(checkCacheBindings(snapshot)).toEqual([]);
   });
 });

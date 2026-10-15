@@ -9,8 +9,10 @@ import {
 
 // Anchored so a commented-out `// export const runtime = "edge"` is not reported.
 const EDGE_RUNTIME_EXPORT = /^\s*export\s+const\s+runtime\s*=\s*["']edge["']/;
+// Clients that hold a connection open. HTTP-based clients (Upstash's `new Redis()`, Neon's
+// `neon()`) are safe at module scope, so they are deliberately absent.
 const IO_CLIENT_CREATION =
-  /\bnew (?:PrismaClient|Pool|Redis|MongoClient)\(|\bpostgres\(|\bmongoose\.connect\(|\bawait fetch\(/;
+  /\bnew (?:PrismaClient|Pool|MongoClient)\(|\bpostgres\(|\bmongoose\.connect\(|\bawait fetch\(/;
 const SYNC_CLOUDFLARE_CONTEXT_CALL = /\bgetCloudflareContext\(\s*\)/;
 // A call on a line that also defines a function runs later, inside a request, not at load.
 const DEFERRED_BY_FUNCTION = /=>|\bfunction\b/;

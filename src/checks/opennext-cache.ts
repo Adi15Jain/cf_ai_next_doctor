@@ -1,4 +1,4 @@
-import type { Finding } from "./finding";
+import type { Finding, Severity } from "./finding";
 import type { RepoSnapshot, WranglerConfig } from "./repo-snapshot";
 import { matchingLines, type LineMatch, type SourceFile } from "./source-file";
 
@@ -7,24 +7,34 @@ type BindingRequirement = {
   readonly name: string;
 };
 
-// `export const revalidate = 60`, `next: { revalidate: 60 }`, getStaticProps' `revalidate: 60`.
-const TIME_BASED_REVALIDATE = /\brevalidate\s*[:=]\s*(\d+)/;
+type RevalidateUsage = {
+  readonly file: SourceFile;
+  readonly match: LineMatch;
+  readonly severity: Severity;
+};
+
+// A page-level `export const revalidate = 60` makes the page ISR, which needs the queue
+// (issue #466): an error. A property such as fetch's `next: { revalidate: 60 }` may only
+// affect the data cache: a warning. The lookbehind skips "stale-while-revalidate=120".
+const SEGMENT_REVALIDATE = /^\s*export\s+const\s+revalidate\s*=\s*(\d+)/;
+const PROPERTY_REVALIDATE = /(?<![\w-])revalidate\s*:\s*(\d+)/;
 const QUEUE_OVERRIDE = /\bqueue\s*:/;
 
-// Cache override → bindings it reads, from the OpenNext caching guide (2026-10-15).
+// Cache override → bindings it reads. From the OpenNext caching guide, checked against the
+// adapter source: DOQueueHandler (not the R2 cache) is what reads WORKER_SELF_REFERENCE.
 const CACHE_OVERRIDE_BINDINGS: ReadonlyMap<
   string,
   readonly BindingRequirement[]
 > = new Map([
+  ["r2IncrementalCache", [{ kind: "r2", name: "NEXT_INC_CACHE_R2_BUCKET" }]],
+  ["d1NextTagCache", [{ kind: "d1", name: "NEXT_TAG_CACHE_D1" }]],
   [
-    "r2IncrementalCache",
+    "doQueue",
     [
-      { kind: "r2", name: "NEXT_INC_CACHE_R2_BUCKET" },
+      { kind: "durable-object", name: "DOQueueHandler" },
       { kind: "service", name: "WORKER_SELF_REFERENCE" }
     ]
   ],
-  ["d1NextTagCache", [{ kind: "d1", name: "NEXT_TAG_CACHE_D1" }]],
-  ["doQueue", [{ kind: "durable-object", name: "DOQueueHandler" }]],
   ["doShardedTagCache", [{ kind: "durable-object", name: "DOShardedTagCache" }]]
 ]);
 
@@ -42,7 +52,7 @@ const REQUIREMENT_DESCRIPTION: Record<
 /** Time-based revalidation on OpenNext needs a queue in open-next.config. */
 export function checkIsrQueue(snapshot: RepoSnapshot): Finding[] {
   if (snapshot.adapter !== "opennext") return [];
-  const usage = firstTimeBasedRevalidate(snapshot.serverFiles);
+  const usage = findTimeBasedRevalidate(snapshot.serverFiles);
   const config = snapshot.openNextConfig;
   if (!usage || (config && QUEUE_OVERRIDE.test(config.text))) return [];
   const gap = config
@@ -51,7 +61,7 @@ export function checkIsrQueue(snapshot: RepoSnapshot): Finding[] {
   return [
     {
       failureId: "isr-queue-missing",
-      severity: "error",
+      severity: usage.severity,
       file: usage.file.path,
       line: usage.match.line,
       evidence: `${usage.match.text} (but ${gap})`
@@ -89,13 +99,25 @@ export function checkCacheBindings(snapshot: RepoSnapshot): Finding[] {
   );
 }
 
-function firstTimeBasedRevalidate(
+function findTimeBasedRevalidate(
   files: readonly SourceFile[]
-): { file: SourceFile; match: LineMatch } | null {
+): RevalidateUsage | null {
+  return (
+    firstPositiveRevalidate(files, SEGMENT_REVALIDATE, "error") ??
+    firstPositiveRevalidate(files, PROPERTY_REVALIDATE, "warning")
+  );
+}
+
+// `revalidate = 0` turns caching off rather than scheduling regeneration, so it is skipped.
+function firstPositiveRevalidate(
+  files: readonly SourceFile[],
+  pattern: RegExp,
+  severity: Severity
+): RevalidateUsage | null {
   for (const file of files) {
-    for (const match of matchingLines(file, TIME_BASED_REVALIDATE)) {
-      const seconds = Number(TIME_BASED_REVALIDATE.exec(match.text)?.[1]);
-      if (seconds > 0) return { file, match };
+    for (const match of matchingLines(file, pattern)) {
+      if (Number(pattern.exec(match.text)?.[1]) > 0)
+        return { file, match, severity };
     }
   }
   return null;

@@ -1,7 +1,7 @@
+import semver from "semver";
+import type { OpenNextRelease } from "../npm/opennext-release";
 import type { Finding } from "./finding";
 import type { RepoSnapshot } from "./repo-snapshot";
-
-type Version = readonly [major: number, minor: number, patch: number];
 
 const NATIVE_ADDON_PACKAGES = new Set([
   "sharp",
@@ -19,8 +19,7 @@ const PROXY_ENTRY_PATHS = new Set([
   "src/proxy.js"
 ]);
 // PR #1309, released in @opennextjs/cloudflare 1.20.3 on 2026-08-26.
-const PROXY_SUPPORTED_SINCE: Version = [1, 20, 3];
-const FIRST_VERSION = /(\d+)\.(\d+)\.(\d+)/;
+const PROXY_SUPPORTED_SINCE_VERSION = "1.20.3";
 
 /** Native (.node) addons cannot load on Workers; only runtime dependencies are bundled. */
 export function checkNativeAddons(snapshot: RepoSnapshot): Finding[] {
@@ -43,9 +42,10 @@ export function checkProxyAdapterVersion(snapshot: RepoSnapshot): Finding[] {
   const proxyFile = snapshot.serverFiles.find((file) =>
     PROXY_ENTRY_PATHS.has(file.path)
   );
-  const floor = range === null ? null : lowestVersionIn(range);
-  if (snapshot.adapter !== "opennext" || !proxyFile || !floor) return [];
-  if (!isOlderThan(floor, PROXY_SUPPORTED_SINCE)) return [];
+  const lowest = lowestVersionIn(range);
+  if (snapshot.adapter !== "opennext" || !proxyFile || lowest === null)
+    return [];
+  if (!semver.lt(lowest, PROXY_SUPPORTED_SINCE_VERSION)) return [];
   return [
     {
       failureId: "proxy-needs-newer-adapter",
@@ -57,16 +57,49 @@ export function checkProxyAdapterVersion(snapshot: RepoSnapshot): Finding[] {
   ];
 }
 
-// For "^1.19.0", "~1.19.0", ">=1.19.0" and "1.19.0" the first version is the lower bound.
-// Ranges without one ("latest", "workspace:*") return null and are skipped.
-function lowestVersionIn(range: string): Version | null {
-  const match = FIRST_VERSION.exec(range);
-  return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null;
+/**
+ * Compares the declared `next` range with the Next.js range of each adapter release that
+ * package.json allows (`openNextReleases`, newest first, from the npm registry; empty: skip).
+ * Error: no allowed release supports it. Warning: only older ones do, so the lockfile is
+ * probably pinned and upgrading the adapter alone will break the app.
+ */
+export function checkNextVersionSupported(
+  snapshot: RepoSnapshot,
+  openNextReleases: readonly OpenNextRelease[]
+): Finding[] {
+  const declared = snapshot.nextVersionRange;
+  const [newest] = openNextReleases;
+  if (
+    snapshot.adapter !== "opennext" ||
+    newest === undefined ||
+    semver.validRange(declared) === null
+  ) {
+    return [];
+  }
+  // A release with no `next` peer declares no restriction, so it supports any version.
+  const supportsDeclared = ({ supportedNextRange }: OpenNextRelease) =>
+    supportedNextRange === null ||
+    (semver.validRange(supportedNextRange) !== null &&
+      semver.intersects(declared, supportedNextRange));
+  if (supportsDeclared(newest)) return [];
+
+  const newestCompatible = openNextReleases.find(supportsDeclared);
+  const newestFacts = `@opennextjs/cloudflare ${newest.version}, the newest release package.json allows, supports next ${newest.supportedNextRange}`;
+  return [
+    {
+      failureId: "next-version-unsupported",
+      severity: newestCompatible ? "warning" : "error",
+      file: "package.json",
+      line: null,
+      evidence: newestCompatible
+        ? `next ${declared} works only up to @opennextjs/cloudflare ${newestCompatible.version}; ${newestFacts}`
+        : `no @opennextjs/cloudflare release that package.json allows supports next ${declared}; ${newestFacts}`
+    }
+  ];
 }
 
-function isOlderThan(version: Version, target: Version): boolean {
-  for (let part = 0; part < version.length; part += 1) {
-    if (version[part] !== target[part]) return version[part] < target[part];
-  }
-  return false;
+// The lowest version a range admits ("^1.19.0" → "1.19.0"); null for "latest", "workspace:*" etc.
+function lowestVersionIn(range: string | null): string | null {
+  if (range === null || semver.validRange(range) === null) return null;
+  return semver.minVersion(range)?.version ?? null;
 }

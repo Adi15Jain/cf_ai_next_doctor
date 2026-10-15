@@ -10,7 +10,7 @@ describe("runAllChecks", () => {
       "wrangler.jsonc": wranglerJsonc({ compatibility_date: "2026-10-14" }),
       "app/page.tsx": "export default function Page() { return null; }"
     });
-    expect(runAllChecks(snapshot)).toEqual([]);
+    expect(runAllChecks(snapshot, [])).toEqual([]);
   });
 
   it("orders errors before warnings", () => {
@@ -21,7 +21,7 @@ describe("runAllChecks", () => {
       },
       { sharp: "^0.35.0" }
     );
-    const severities = runAllChecks(snapshot).map(
+    const severities = runAllChecks(snapshot, []).map(
       (finding) => finding.severity
     );
     expect(severities).toEqual([...severities].sort());

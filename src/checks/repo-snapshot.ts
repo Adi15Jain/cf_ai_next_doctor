@@ -1,5 +1,5 @@
 import { parse as parseToml } from "smol-toml";
-import { endOfQuoted, type SourceFile } from "./source-file";
+import { endOfQuoted, withoutComments, type SourceFile } from "./source-file";
 
 /** Which Cloudflare adapter the app uses; decides which rules apply. */
 export type Adapter = "vinext" | "opennext" | "next-on-pages" | "none";
@@ -19,10 +19,13 @@ export type WranglerConfig = {
 /** Everything the checks need, parsed and validated once at the boundary. */
 export type RepoSnapshot = {
   readonly adapter: Adapter;
+  readonly nextVersionRange: string;
   readonly openNextVersionRange: string | null;
   readonly runtimeDependencies: readonly string[];
   readonly wrangler: WranglerConfig | null;
+  /** Comments blanked out (line numbers kept), so commented-out code never counts. */
   readonly nextConfig: SourceFile | null;
+  /** Comments blanked out (line numbers kept), so commented-out code never counts. */
   readonly openNextConfig: SourceFile | null;
   /** Server-side code only: no dependencies, build output, tests, config or "use client" modules. */
   readonly serverFiles: readonly SourceFile[];
@@ -65,6 +68,12 @@ const OPENNEXT_CONFIG_PATHS = [
   "open-next.config.mjs",
   "open-next.config.js"
 ];
+const CONFIG_PATHS = new Set([
+  "package.json",
+  ...WRANGLER_CONFIG_PATHS,
+  ...NEXT_CONFIG_PATHS,
+  ...OPENNEXT_CONFIG_PATHS
+]);
 const CODE_FILE = /\.[cm]?[jt]sx?$/;
 const NON_APP_PATH =
   /(?:^|\/)(?:node_modules|\.next|\.open-next|\.vercel|\.wrangler|dist|build|out|coverage|public|scripts|__tests__)\/|\.(?:test|spec)\.[cm]?[jt]sx?$|\.d\.ts$|^[^/]+\.config\.[cm]?[jt]s$/;
@@ -85,20 +94,33 @@ export function readRepoSnapshot(
     ...manifest.devDependencies,
     ...manifest.dependencies
   };
-  if (!Object.hasOwn(allDependencies, "next")) {
+  const nextVersionRange = Object.hasOwn(allDependencies, "next")
+    ? allDependencies.next
+    : undefined;
+  if (nextVersionRange === undefined) {
     throw new RepoNotScannableError(
       'Expected a Next.js app, but package.json has no "next" dependency.'
     );
   }
   return {
     adapter: detectAdapter(allDependencies),
+    nextVersionRange,
     openNextVersionRange: allDependencies[OPENNEXT_PACKAGE] ?? null,
     runtimeDependencies: Object.keys(manifest.dependencies),
     wrangler: readWranglerConfig(files),
-    nextConfig: firstExisting(files, NEXT_CONFIG_PATHS),
-    openNextConfig: firstExisting(files, OPENNEXT_CONFIG_PATHS),
+    nextConfig: codeOnly(firstExisting(files, NEXT_CONFIG_PATHS)),
+    openNextConfig: codeOnly(firstExisting(files, OPENNEXT_CONFIG_PATHS)),
     serverFiles: selectServerFiles(files)
   };
+}
+
+/** True for the files readRepoSnapshot reads (root configs and app code), so downloads can skip the rest. */
+export function isScannablePath(path: string): boolean {
+  return CONFIG_PATHS.has(path) || isAppCodePath(path);
+}
+
+function isAppCodePath(path: string): boolean {
+  return CODE_FILE.test(path) && !NON_APP_PATH.test(path);
 }
 
 function readPackageManifest(text: string | undefined): PackageManifest {
@@ -134,7 +156,7 @@ function readWranglerConfig(
   const config = parseOrExplain(file.path, () =>
     file.path.endsWith(".toml")
       ? parseToml(file.text)
-      : JSON.parse(stripJsoncSyntax(file.text))
+      : JSON.parse(removeTrailingCommas(withoutComments(file.text)))
   );
   if (!isRecord(config)) {
     throw new RepoNotScannableError(
@@ -142,22 +164,36 @@ function readWranglerConfig(
     );
   }
   const date = config.compatibility_date;
-  const durableObjects = isRecord(config.durable_objects)
-    ? config.durable_objects.bindings
-    : undefined;
+  // `env.<name>` sections do not inherit bindings, so one declared in any section counts.
+  // Migrations are unioned the same way, which can only remove false alarms.
+  const sections = [
+    config,
+    ...recordsIn(isRecord(config.env) ? Object.values(config.env) : [])
+  ];
+  const across = (read: (section: Record<string, unknown>) => string[]) =>
+    sections.flatMap(read);
   return {
     file,
     compatibilityDate:
       typeof date === "string" && ISO_DATE.test(date) ? date : null,
     compatibilityFlags: stringArray(config.compatibility_flags),
-    durableObjectClasses: namesIn(durableObjects, "class_name"),
-    migratedClasses: recordsIn(config.migrations).flatMap((migration) => [
-      ...stringArray(migration.new_classes),
-      ...stringArray(migration.new_sqlite_classes)
-    ]),
-    r2Bindings: namesIn(config.r2_buckets, "binding"),
-    d1Bindings: namesIn(config.d1_databases, "binding"),
-    serviceBindings: namesIn(config.services, "binding")
+    durableObjectClasses: across((section) =>
+      namesIn(
+        isRecord(section.durable_objects)
+          ? section.durable_objects.bindings
+          : undefined,
+        "class_name"
+      )
+    ),
+    migratedClasses: across((section) =>
+      recordsIn(section.migrations).flatMap((migration) => [
+        ...stringArray(migration.new_classes),
+        ...stringArray(migration.new_sqlite_classes)
+      ])
+    ),
+    r2Bindings: across((section) => namesIn(section.r2_buckets, "binding")),
+    d1Bindings: across((section) => namesIn(section.d1_databases, "binding")),
+    serviceBindings: across((section) => namesIn(section.services, "binding"))
   };
 }
 
@@ -167,11 +203,17 @@ function selectServerFiles(files: ReadonlyMap<string, string>): SourceFile[] {
     const isClientModule = USE_CLIENT_DIRECTIVE.test(
       text.slice(0, DIRECTIVE_SEARCH_CHARS)
     );
-    if (CODE_FILE.test(path) && !NON_APP_PATH.test(path) && !isClientModule) {
+    if (isAppCodePath(path) && !isClientModule) {
       serverFiles.push({ path, text });
     }
   }
   return serverFiles;
+}
+
+function codeOnly(file: SourceFile | null): SourceFile | null {
+  return file === null
+    ? null
+    : { path: file.path, text: withoutComments(file.text) };
 }
 
 function firstExisting(
@@ -194,24 +236,17 @@ function parseOrExplain(path: string, parse: () => unknown): unknown {
 }
 
 /**
- * Removes comments and trailing commas so JSON.parse accepts JSONC. One pass, O(n).
- * Strings are copied untouched, so "https://…" inside a value is not read as a comment.
- * A comma is held back until the next significant character shows whether it trails.
+ * Removes trailing commas (`[1, 2,]`) so JSON.parse accepts JSONC once comments are gone.
+ * One pass, O(n); strings are copied untouched. A comma is held back until the next
+ * significant character shows whether it trails.
  */
-function stripJsoncSyntax(text: string): string {
+function removeTrailingCommas(text: string): string {
   let output = "";
   let pendingComma = false;
   let index = 0;
   while (index < text.length) {
     const char = text[index];
-    const next = text[index + 1];
-    if (char === "/" && next === "/") {
-      const newline = text.indexOf("\n", index);
-      index = newline === -1 ? text.length : newline;
-    } else if (char === "/" && next === "*") {
-      const close = text.indexOf("*/", index + 2);
-      index = close === -1 ? text.length : close + 2;
-    } else if (char === ",") {
+    if (char === ",") {
       if (pendingComma) output += ",";
       pendingComma = true;
       index += 1;

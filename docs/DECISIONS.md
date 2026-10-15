@@ -55,3 +55,45 @@ Context: next-on-pages and older OpenNext repos use `wrangler.toml`; the checks 
 Decision: Add `smol-toml` (BSD-3-Clause, no dependencies). JSONC is handled by a 30-line string-aware stripper instead of a library.
 Alternatives: Regex-scrape TOML (breaks on arrays of tables like `[[migrations]]`); skip TOML repos (loses the deprecated-adapter audience).
 Consequences: One runtime dependency. Wrangler's own lookup order (json, jsonc, toml) is copied from its source.
+
+## 2026-10-15 — One codeload tarball per scan, not the GitHub contents API
+
+Context: A Worker on the free plan may make 50 subrequests per request, and the unauthenticated GitHub API allows 60 calls an hour. Reading a repo file by file would hit both limits.
+Decision: Fetch `codeload.github.com/{owner}/{repo}/tar.gz/{ref}` once. It counts as one subrequest, needs no token, and the pax header carries the commit SHA for the report.
+Alternatives: The contents or trees API (one call per file, rate-limited); a GitHub token (a secret to manage, and still many calls).
+Consequences: Public repos only. A missing or private repo returns 404, which becomes a specific error.
+
+## 2026-10-15 — Stream the tar and keep only scannable files
+
+Context: Worker memory is 128 MB, and some repos commit large assets.
+Decision: Pipe the response through `DecompressionStream` into a hand-written streaming tar reader (ustar, pax and GNU long names, checksum-checked). Keep only files the checks read, each under 512 KiB and 16 MiB in total.
+Alternatives: Buffer the whole archive, then untar it with a library (memory scales with repo size; one more dependency).
+Consequences: About 220 lines of parser, covered by tests that feed awkward chunk boundaries.
+
+## 2026-10-15 — Add semver for the adapter version checks
+
+Context: The version checks compare npm ranges such as `>=15.5.27 <16 || >=16.3.8` with the app's declared `next` range.
+Decision: Add `semver` (ISC, no dependencies). npm itself uses it to resolve ranges, so results match what `npm install` does.
+Alternatives: Hand-parse versions (wrong on `||`, `~`, prereleases); compare only major numbers (misses the 16.3.8 floor).
+Consequences: One more runtime dependency, about 27 KB minified in the Worker bundle.
+
+## 2026-10-15 — Check `next` against every adapter release package.json allows
+
+Context: Checking only the newest allowed adapter release flagged `next 15.3.0` as an error, yet the lockfile can pin an older release that still supports it. Releases up to at least 1.6.5 declare no `next` peer at all.
+Decision: Read every release the declared range allows from npm's abbreviated metadata (~230 KB). Error when none supports `next`; warning when only older releases do. A release with no `next` peer counts as unrestricted.
+Alternatives: Read the lockfile (four formats, often missing); check the newest release only (false errors).
+Consequences: One registry call per scan. If the registry is down, the scan continues without this check.
+
+## 2026-10-15 — Fix false alarms found by scanning 14 real repos
+
+Context: Running the checks on 14 public OpenNext repos turned up false positives the unit tests had missed.
+Decision: `revalidate: N` as an object property is a warning (it may only touch the data cache), and `stale-while-revalidate` is skipped. Upstash `new Redis()` (HTTP-based) is not module-scope I/O. `WORKER_SELF_REFERENCE` is required by `doQueue`, not by `r2IncrementalCache`, as verified in OpenNext's source. `dev-init-missing` is reported only when code calls `getCloudflareContext()`.
+Alternatives: Keep the stricter rules (noisy reports teach people to ignore them).
+Consequences: Each fix has a test. The smoke script stays outside the repo because it calls live services.
+
+## 2026-10-15 — Blank comments before matching config files
+
+Context: Two real repos had `// incrementalCache: r2IncrementalCache` commented out and were still told to add an R2 binding.
+Decision: `withoutComments()` replaces comments with spaces and keeps newlines, so line numbers stay correct. It is string-aware, so `"https://…"` survives. It runs on next.config, open-next.config and wrangler JSONC, which replaces the earlier JSONC stripper. Bindings in `env.<name>` sections count too, because Wrangler does not inherit them.
+Alternatives: Per-regex `^\s*//` anchors (miss block comments and trailing comments).
+Consequences: Regex literals that contain `//` are misread as comments. Config files rarely have them, so server code is not blanked wholesale.

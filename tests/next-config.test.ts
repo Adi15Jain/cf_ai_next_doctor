@@ -6,20 +6,62 @@ const WITH_DEV_INIT = `import { initOpenNextCloudflareForDev } from "@opennextjs
 initOpenNextCloudflareForDev();
 export default {};`;
 
+const READS_BINDINGS =
+  "export async function GET() {\n  const { env } = getCloudflareContext();\n}";
+
 describe("checkDevInit", () => {
-  it("flags a next.config that never calls initOpenNextCloudflareForDev()", () => {
+  it("flags code that reads bindings while next.config skips initOpenNextCloudflareForDev()", () => {
     const [finding] = checkDevInit(
-      openNextApp({ "next.config.ts": "export default {};" })
+      openNextApp({
+        "next.config.ts": "export default {};",
+        "app/api/route.ts": READS_BINDINGS
+      })
     );
     expect(finding).toMatchObject({
       failureId: "dev-init-missing",
       file: "next.config.ts"
     });
+    expect(finding?.evidence).toMatch(
+      /^app\/api\/route.ts calls getCloudflareContext\(\)/
+    );
   });
 
   it("accepts a next.config that calls it", () => {
     expect(
-      checkDevInit(openNextApp({ "next.config.ts": WITH_DEV_INIT }))
+      checkDevInit(
+        openNextApp({
+          "next.config.ts": WITH_DEV_INIT,
+          "app/api/route.ts": READS_BINDINGS
+        })
+      )
+    ).toEqual([]);
+  });
+
+  it("does not count a commented-out initOpenNextCloudflareForDev()", () => {
+    const [finding] = checkDevInit(
+      openNextApp({
+        "next.config.ts":
+          "// initOpenNextCloudflareForDev();\nexport default {};",
+        "app/api/route.ts": READS_BINDINGS
+      })
+    );
+    expect(finding?.failureId).toBe("dev-init-missing");
+  });
+
+  it("does not count a commented-out getCloudflareContext() as reading bindings", () => {
+    expect(
+      checkDevInit(
+        openNextApp({
+          "next.config.ts": "export default {};",
+          "app/api/route.ts": "// const { env } = getCloudflareContext();"
+        })
+      )
+    ).toEqual([]);
+  });
+
+  it("stays quiet when no code reads bindings", () => {
+    expect(
+      checkDevInit(openNextApp({ "next.config.ts": "export default {};" }))
     ).toEqual([]);
   });
 
