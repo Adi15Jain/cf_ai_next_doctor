@@ -70,8 +70,9 @@ describe("buildExplainPrompt", () => {
     expect(factIndex).toBeGreaterThan(-1);
     expect(fenceIndex).toBeGreaterThan(factIndex);
     expect(prompt).toContain(
-      '[edge-runtime-declared] error in app/api/route.ts:1: export const runtime = "edge"'
+      'Route sets `export const runtime = "edge"` (error) in app/api/route.ts:1: export const runtime = "edge"'
     );
+    expect(prompt).not.toContain("edge-runtime-declared");
   });
 
   it("describes each failure once, however often it was found", () => {
