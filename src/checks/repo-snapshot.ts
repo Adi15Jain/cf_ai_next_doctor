@@ -1,4 +1,5 @@
 import { parse as parseToml } from "smol-toml";
+import { isRecord } from "../json-guards";
 import { endOfQuoted, withoutComments, type SourceFile } from "./source-file";
 
 /** Which Cloudflare adapter the app uses; decides which rules apply. */
@@ -262,10 +263,6 @@ function removeTrailingCommas(text: string): string {
     }
   }
   return pendingComma ? `${output},` : output;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function stringArray(value: unknown): string[] {

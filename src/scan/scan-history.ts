@@ -1,3 +1,4 @@
+import { countBySeverity } from "../checks/finding";
 import type { ScanReport } from "./scan-repository";
 
 /** The slice of Durable Object SQLite storage the history uses; `ctx.storage.sql` satisfies it. */
@@ -44,9 +45,7 @@ export class ScanHistory {
 
   /** Saving the same scan again (a retried Workflow step) replaces its row instead of adding one. */
   save(scanId: string, report: ScanReport, scannedAt: Date): void {
-    const errorCount = report.findings.filter(
-      (finding) => finding.severity === "error"
-    ).length;
+    const { errors, warnings } = countBySeverity(report.findings);
     const failureIds = [
       ...new Set(report.findings.map((finding) => finding.failureId))
     ];
@@ -57,8 +56,8 @@ export class ScanHistory {
       report.repoUrl,
       report.commitSha,
       report.adapter,
-      errorCount,
-      report.findings.length - errorCount,
+      errors,
+      warnings,
       failureIds.join(","),
       scannedAt.toISOString()
     );

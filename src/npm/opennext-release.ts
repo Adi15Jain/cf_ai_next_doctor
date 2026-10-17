@@ -1,4 +1,5 @@
 import semver from "semver";
+import { isRecord } from "../json-guards";
 
 /** An @opennextjs/cloudflare release and the Next.js range it declares support for. */
 export type OpenNextRelease = {
@@ -60,8 +61,4 @@ function readNextPeerRanges(document: unknown): Map<string, string | null> {
     ranges.set(version, typeof nextRange === "string" ? nextRange : null);
   }
   return ranges;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

@@ -11,3 +11,14 @@ export type Finding = {
   readonly line: number | null;
   readonly evidence: string;
 };
+
+/** How many findings are errors and how many are warnings. */
+export function countBySeverity(findings: readonly Finding[]): {
+  readonly errors: number;
+  readonly warnings: number;
+} {
+  const errors = findings.filter(
+    (finding) => finding.severity === "error"
+  ).length;
+  return { errors, warnings: findings.length - errors };
+}
