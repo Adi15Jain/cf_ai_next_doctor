@@ -4,7 +4,7 @@
 
 Context: Cloudflare's assignment fast-tracks candidates; ~488 prior `cf_ai_` repos exist and plain chatbots, study buddies, interview coaches, travel planners, code reviewers and incident copilots are saturated.
 Decision: Four research passes (Cloudflare community forum, on-call surveys, Cloudflare's GitHub trackers, prior submissions) ranked candidate problems by frequency, agent-tractability and crowding. Chose "Next.js on Workers deploy doctor": 18 recurring failure types on GitHub, 14 detectable statically, none of the prior repos cover it, and it sits in Adi's own stack.
-Alternatives: "Pending Nameserver Update" diagnoser (best evidence, but outside Adi's experience); on-call alert validation (best survey numbers, but 5+ similar submissions); TurfTech booking agent (real customer, weaker platform story).
+Alternatives: "Pending Nameserver Update" diagnoser (best evidence, but outside Adi's experience); on-call alert validation (best survey numbers, but 5+ similar submissions); a booking agent for one of Adi's own products (a real customer, but a weaker platform story).
 Consequences: Narrow scope; every check must cite its source, which makes the knowledge base the core asset.
 
 ## 2026-10-15 — Start from cloudflare/agents-starter rather than from scratch
@@ -125,3 +125,31 @@ Context: File paths and evidence lines come from strangers' repositories and rea
 Decision: The explain prompt keeps trusted knowledge-base text outside one `<untrusted>` fence that holds every repository-derived line. Fenced text is redacted (keys, tokens, credentials, emails) and stripped of hidden control characters. Instruction-like text adds a warning. Reports and quoted log lines are redacted too. The old EdgeWatch URL validator and the phone and card rules had no caller here, so they were removed.
 Alternatives: No fence (simplest, unsafe); a second model as an injection classifier (another call, and it can be injected itself).
 Consequences: Pasted logs still reach the model exactly as the user wrote them. Redacting user messages is a v2 option.
+
+## 2026-10-17 — Pin the compatibility date to what the locked runtime supports
+
+Context: Step 1 set `compatibility_date` to the current date, 2026-10-14. The locked Wrangler 4.113.0 ships a workerd that supports dates up to 2026-07-28, so `npm run dev` refused to start. This was caught by the first local run.
+Decision: Use 2026-07-28 and keep `nodejs_compat` set explicitly, so nothing depends on the August 2026 default.
+Alternatives: Upgrade Wrangler and the Vite plugin to the latest release (a wide dependency change late in the project, and it would need re-testing).
+Consequences: Upgrading Wrangler later allows a newer date; the code does not depend on one.
+
+## 2026-10-17 — The Scan button calls the agent directly; progress lives in agent state
+
+Context: Starting a scan only through the model makes the core feature depend on Llama choosing a tool, and the UI had no way to show a scan in progress.
+Decision: `startScan` is a `@callable` method used by both the button and the `scan_repo` tool. Running scans live in agent state, which every open tab receives. `validateStateChange` rejects client writes, so a browser cannot fake progress. Report cards read error and warning counts from message metadata, not from the Markdown.
+Alternatives: Broadcast progress events (lost on reload); parse counts out of the report text (breaks when the wording changes).
+Consequences: Scans work, and can be demonstrated, even when the model is unavailable.
+
+## 2026-10-17 — One Durable Object per browser, not the starter's shared instance
+
+Context: The starter connects every visitor to the same agent instance, so all visitors would share one chat and one scan history.
+Decision: The browser creates a random chat id once, keeps it in localStorage, and uses it as the agent name.
+Alternatives: Accounts and authentication (out of scope for a demo); a cookie set by the Worker (more code, same guarantee).
+Consequences: Ids are unguessable but not secret: anyone holding one can open that chat. Clearing site data starts a new chat.
+
+## 2026-10-17 — Not deployed; the README documents local runs
+
+Context: The only logged-in Cloudflare account appears to be a work account. Measured in Node, a scan step uses 17–330 ms of CPU, while Workflows on the free plan allow 10 ms per step.
+Decision: Adi chose not to deploy. The README covers a full local run with `wrangler login`, a run with no account (`CLOUDFLARE_VITE_FORCE_LOCAL=true`), and deployment on Workers Paid.
+Alternatives: Deploy to the work account (wrong owner for a job application); deploy on the free plan (scans would exceed the CPU limit).
+Consequences: Reviewers run it locally. A real end-to-end check with Workers AI is still to be done.

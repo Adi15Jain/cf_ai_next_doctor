@@ -83,6 +83,16 @@ _The file became the global coding rules; this repository's `CLAUDE.md` fills in
 
 > Proceed with step 4? The plan: (1) a ScanWorkflow that fetches the repo, runs the checks and saves the result, with each step retried on its own; (2) replace the starter's demo tools with scan_repo, explain_log and recall_scans, and delete the old ones; (3) Llama 3.3 explains the findings, with repo text redacted and marked untrusted before it reaches the prompt; (4) the report recommends an adapter (vinext, OpenNext, or move off next-on-pages); (5) tests use a fake AI and a fake fetch, so nothing calls Cloudflare. — Yes, tests only for now
 
+**Prompt 16** (after step 4 was committed and Claude proposed the step 5 UI plan)
+
+> yes, complete it entirely, otherwise the job will stale out
+
+**Prompt 17** (Claude's three questions before finishing steps 5 and 6)
+
+> Which Cloudflare account should the deployed demo run on? — Don't deploy
+> Create the GitHub repo Adi15Jain/cf_ai_next_doctor and push the project there? — Yes, public repo
+> Which public Next.js repo should the README demo (and the screenshot of a real scan) use? — Pick one I scanned
+
 ## Part 2 — Research prompts Claude delegated to sub-agents
 
 These were written by Claude, not the candidate, and are included because they produced

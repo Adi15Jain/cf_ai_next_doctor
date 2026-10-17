@@ -17,7 +17,9 @@ The global rules in `~/.claude/CLAUDE.md` apply. This file fills in the project 
   issue URLs, adapter advice); `src/log-match.ts` = pasted error log → knowledge-base matches;
   `src/github/` = repository fetching and tar parsing; `src/npm/` = adapter release lookup;
   `src/scan/` = one scan end to end (fetch + checks, Llama explanation, Markdown report,
-  SQLite history, the `ScanWorkflow` class); `src/chat-tools.ts` = the model's tools;
+  SQLite history, scan status shared with the UI, the `ScanWorkflow` class);
+  `src/chat-tools.ts` = the model's tools; `src/ui/` = React components for messages,
+  report cards and the repository box; `src/json-guards.ts` = shared JSON type guards;
   `tests/` = vitest (`tests/fixtures.ts` builds snapshots and tarballs, `tests/sqlite.ts`
   runs history SQL on node:sqlite); `docs/DECISIONS.md` = decision log;
   `PROMPTS.md` = AI prompt history required by the assignment.
