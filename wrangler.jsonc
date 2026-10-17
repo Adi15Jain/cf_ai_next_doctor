@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "cf-ai-next-doctor",
   "main": "src/server.ts",
-  "compatibility_date": "2026-10-14",
+  "compatibility_date": "2026-07-28",
   "compatibility_flags": ["nodejs_compat"],
   "upload_source_maps": true,
   "observability": { "enabled": true },
