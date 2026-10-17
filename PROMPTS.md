@@ -107,6 +107,10 @@ _The file became the global coding rules; this repository's `CLAUDE.md` fills in
 
 > Let us now complete this and submit it, because I want to close this thing now!
 
+**Prompt 21** (after the repository was ready to submit)
+
+> we should deploy it as well so that we can show it working on the web!!
+
 ## Part 2 — Research prompts Claude delegated to sub-agents
 
 These were written by Claude, not the candidate, and are included because they produced

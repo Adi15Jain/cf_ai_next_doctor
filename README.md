@@ -9,6 +9,9 @@ doc page and GitHub issues behind each one. Paste a build or deploy error, and i
 against the same knowledge base. Llama 3.3 explains and orders the fixes; it cannot add or
 remove a finding.
 
+**Try it live: https://cf-ai-next-doctor.adi1510jain.workers.dev**. No sign-in is needed, and
+each browser gets its own chat. Click "Scan an example repo", or paste any public GitHub URL.
+
 Built for Cloudflare's AI application assignment. The AI prompts used to build it are in
 [PROMPTS.md](PROMPTS.md), and the design decisions in [docs/DECISIONS.md](docs/DECISIONS.md).
 
@@ -63,9 +66,10 @@ npm run check       # format, lint, typecheck and tests
 npm run deploy
 ```
 
-Use the Workers Paid plan. A scan step parses the repository archive, which took 17–330 ms of
-CPU per repository when measured in Node, and Workflows on the free plan allow 10 ms of CPU
-per step.
+This deploys the Worker, the Durable Object and the Workflow. The live demo was deployed this
+way, and scans of four public repositories (including a monorepo) completed on the first
+attempt. Workflow steps on the Workers Free plan are limited to 10 ms of CPU. If a very
+large repository's scan step hits that limit, Workers Paid raises it to 30 s.
 
 ## How it maps to the assignment
 
@@ -147,6 +151,9 @@ size limit, removed on 2026-09-04) and are deliberately not checked.
 - **Declared version ranges, not the lockfile.** The version check reasons over every
   release `package.json` allows instead of reading four lockfile formats.
 - **Pasted logs reach the model as typed.** Only quoted lines are redacted.
+- **The live demo shares one daily Workers AI allowance.** If it runs out, chat replies fail
+  and reports arrive without the explanation; the findings themselves never depend on the model.
+  There is no rate limiting yet.
 - **Chat replies arrive whole, not word by word.** workers-ai-provider 3.3.1 reads every
   streamed tool-call fragment from Workers AI twice, which corrupts tool arguments, so the
   chat asks for whole responses ([src/workers-ai.ts](src/workers-ai.ts)). With a fixed

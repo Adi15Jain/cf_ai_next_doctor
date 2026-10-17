@@ -174,3 +174,10 @@ Context: Scanning one of Adi's own repositories failed with "Expected package.js
 Decision: Nested `package.json` files (outside `node_modules`) are kept with the download. If the root does not depend on `next`, a folder whose `package.json` lists `next` under `dependencies` is scanned instead (a second download). Libraries that list `next` only as a dev dependency are skipped. Several apps produce a list of scan URLs; none produces a plain message.
 Alternatives: Only improve the error (the user pastes a second URL every time); scan every app folder (several reports for one request).
 Consequences: Repositories with one app need no special URL. The Workflow error prefix (`RepoNotScannableError:`) is also stripped from failure cards.
+
+## 2026-10-17 — Deploy the demo to Adi's personal account (supersedes "Not deployed")
+
+Context: Reviewers judge faster from a link than from local setup. The earlier blocker was that the only Wrangler login was a work account; Adi has since logged in with a personal account.
+Decision: Deploy with `npm run deploy` to `cf-ai-next-doctor.adi1510jain.workers.dev`, without sign-in. Each browser gets its own Durable Object. Verified live: four public repositories scanned on the first attempt (Workflow steps took 0–10 s each), and the chat, pasted-error and history examples worked in a real browser.
+Alternatives: Local-only (every reviewer needs Node and a Cloudflare login); add sign-in (beyond what the assignment asks).
+Consequences: Anyone can start scans and spend the account's daily Workers AI allowance. Findings do not depend on the model, so reports still arrive if it runs out. If abuse appears, add a Cloudflare rate-limiting rule or Turnstile.
