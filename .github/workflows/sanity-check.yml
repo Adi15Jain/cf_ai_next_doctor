@@ -11,20 +11,16 @@ on:
 jobs:
   check:
     timeout-minutes: 5
-    strategy:
-      matrix:
-        os: [
-            ubuntu-24.04
-            # windows-latest,
-            # macos-latest,
-          ]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - uses: actions/setup-node@v3
+      # The README's documented minimum: tests use node:sqlite, built in from 22.13.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-      - run: npm install
+      - run: npm ci
       - run: npm run check
