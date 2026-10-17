@@ -102,4 +102,71 @@ describe("scanRepository", () => {
       scanRepository("https://github.com/acme/shop", internet.fetchFunction)
     ).rejects.toThrow(RepoNotScannableError);
   });
+
+  it("scans the only Next.js app when the repository root holds other code", async () => {
+    const internet = await fakeInternet(
+      {
+        "pyproject.toml": "[project]",
+        "web/package.json": packageJson({
+          "@opennextjs/cloudflare": "^1.20.11"
+        }),
+        "web/wrangler.jsonc": WRANGLER,
+        "web/app/api/route.ts": EDGE_ROUTE
+      },
+      "online"
+    );
+    const report = await scanRepository(
+      "https://github.com/acme/shop",
+      internet.fetchFunction
+    );
+    expect(report.repoUrl).toBe("https://github.com/acme/shop/tree/HEAD/web");
+    expect(report.findings.map((finding) => finding.failureId)).toEqual([
+      "edge-runtime-declared"
+    ]);
+  });
+
+  it("finds the app in a monorepo whose root package.json has no next, skipping libraries", async () => {
+    const internet = await fakeInternet(
+      {
+        "package.json": JSON.stringify({
+          workspaces: ["apps/*", "packages/*"]
+        }),
+        "apps/web/package.json": packageJson(),
+        "packages/ui/package.json": JSON.stringify({
+          devDependencies: { next: "^16.3.8" }
+        }),
+        "node_modules/next/package.json": packageJson()
+      },
+      "online"
+    );
+    const report = await scanRepository(
+      "https://github.com/acme/shop",
+      internet.fetchFunction
+    );
+    expect(report.repoUrl).toBe(
+      "https://github.com/acme/shop/tree/HEAD/apps/web"
+    );
+  });
+
+  it("lists a scan URL for each app when there are several", async () => {
+    const internet = await fakeInternet(
+      {
+        "web/package.json": packageJson(),
+        "admin/package.json": packageJson()
+      },
+      "online"
+    );
+    await expect(
+      scanRepository("https://github.com/acme/shop", internet.fetchFunction)
+    ).rejects.toThrow(
+      /has 2\. Scan one of: .*\/tree\/HEAD\/(web|admin), .*\/tree\/HEAD\/(web|admin)$/
+    );
+  });
+
+  it("says so when no package.json in the repository depends on next", async () => {
+    const internet = await fakeInternet({ "README.md": "# docs" }, "online");
+    await expect(
+      scanRepository("https://github.com/acme/shop", internet.fetchFunction)
+    ).rejects.toThrow('no package.json in this repository depends on "next"');
+  });
 });

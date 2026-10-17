@@ -134,9 +134,12 @@ export class ChatAgent extends AIChatAgent<Env, ChatState> {
     const repoUrl =
       this.state.activeScans.find((scan) => scan.scanId === workflowId)
         ?.repoUrl ?? "the repository";
+    // The Workflow engine prefixes the error's class name ("RepoNotScannableError: …"),
+    // which means nothing to the reader.
+    const reason = error.replace(/^\w*Error: /, "");
     await this.postScanMessage(
       workflowId,
-      `**The scan of ${repoUrl} failed.** ${error}`,
+      `**The scan of ${repoUrl} failed.** ${reason}`,
       { kind: "scan-failed", repoUrl }
     );
   }

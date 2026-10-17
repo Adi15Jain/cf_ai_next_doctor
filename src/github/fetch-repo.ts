@@ -22,6 +22,9 @@ const DOWNLOAD_TIMEOUT_MS = 20_000;
 const MAX_FILE_BYTES = 512 * 1024;
 const MAX_KEPT_BYTES = 16 * 1024 * 1024;
 const COMMIT_SHA = /^[0-9a-f]{40}$/;
+// package.json files in subfolders are kept so that scanRepository can find the app in a
+// monorepo or in a repository whose root holds other code.
+const NESTED_MANIFEST = /^(?!.*(?:^|\/)node_modules\/).+\/package\.json$/;
 
 /**
  * Downloads a public GitHub repository as one gzipped tarball and keeps only the files
@@ -71,7 +74,11 @@ function keepScannableFiles(
   let keptBytes = 0;
   return (archivePath, sizeBytes) => {
     const path = repoRelativePath(archivePath, subdirectory);
-    if (path === null || sizeBytes > MAX_FILE_BYTES || !isScannablePath(path))
+    if (
+      path === null ||
+      sizeBytes > MAX_FILE_BYTES ||
+      !(isScannablePath(path) || NESTED_MANIFEST.test(path))
+    )
       return false;
     keptBytes += sizeBytes;
     if (keptBytes > MAX_KEPT_BYTES) {

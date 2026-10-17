@@ -92,4 +92,14 @@ describe("fetchRepoFiles", () => {
       GitHubUnavailableError
     );
   });
+
+  it("keeps package.json files in subfolders, but not from node_modules", async () => {
+    const github = await fakeGitHub([
+      { path: "shop-HEAD/apps/web/package.json", content: "{}" },
+      { path: "shop-HEAD/node_modules/next/package.json", content: "{}" },
+      { path: "shop-HEAD/apps/web/node_modules/x/package.json", content: "{}" }
+    ]);
+    const result = await fetchRepoFiles(ROOT, github.fetchFunction);
+    expect([...result.files.keys()]).toEqual(["apps/web/package.json"]);
+  });
 });
