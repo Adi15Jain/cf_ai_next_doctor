@@ -19,7 +19,7 @@ import {
   type ScanMessageMetadata
 } from "./scan/scan-status";
 import type { ScanParams } from "./scan/scan-workflow";
-import { LLAMA_3_3_MODEL } from "./workers-ai";
+import { LLAMA_3_3_MODEL, withoutStreaming } from "./workers-ai";
 
 export { ScanWorkflow } from "./scan/scan-workflow";
 
@@ -49,7 +49,9 @@ export class ChatAgent extends AIChatAgent<Env, ChatState> {
   readonly #history = new ScanHistory(this.ctx.storage.sql);
 
   async onChatMessage(_onFinish: unknown, options?: OnChatMessageOptions) {
-    const workersAi = createWorkersAI({ binding: this.env.AI });
+    const workersAi = createWorkersAI({
+      binding: withoutStreaming(this.env.AI)
+    });
     const result = streamText({
       model: workersAi(LLAMA_3_3_MODEL, {
         sessionAffinity: this.sessionAffinity
