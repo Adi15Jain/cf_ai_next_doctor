@@ -6,6 +6,7 @@ import { redact } from "./guardrails";
 import { FAILURES } from "./knowledge/failures";
 import { matchErrorLog } from "./log-match";
 import type { ScanHistory } from "./scan/scan-history";
+import type { ActiveScan } from "./scan/scan-status";
 
 // Enough for a full `wrangler deploy` or `next build` failure; longer pastes are mostly noise.
 const MAX_LOG_CHARS = 20_000;
@@ -13,8 +14,8 @@ const RECALLED_SCANS_LIMIT = 10;
 
 /** What the tools need from the agent, passed in so tests can supply fakes. */
 export type ChatToolDependencies = {
-  /** Starts a ScanWorkflow for a canonical repository URL and resolves to its id. */
-  readonly startScan: (repoUrl: string) => Promise<string>;
+  /** Starts a ScanWorkflow; throws RepoNotScannableError for a URL that is not a GitHub repo. */
+  readonly startScan: (repoUrl: string) => Promise<ActiveScan>;
   readonly history: ScanHistory;
 };
 
@@ -33,9 +34,12 @@ export function createChatTools({ startScan, history }: ChatToolDependencies) {
       }),
       execute: async ({ repoUrl }) => {
         try {
-          const canonicalUrl = formatRepoUrl(parseRepoUrl(repoUrl));
-          const scanId = await startScan(canonicalUrl);
-          return { status: "started", scanId, repoUrl: canonicalUrl } as const;
+          const scan = await startScan(repoUrl);
+          return {
+            status: "started",
+            scanId: scan.scanId,
+            repoUrl: scan.repoUrl
+          } as const;
         } catch (error) {
           // A malformed URL is the user's to fix, so the model relays the reason.
           if (!(error instanceof RepoNotScannableError)) throw error;

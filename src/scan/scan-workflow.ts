@@ -10,9 +10,12 @@ import type { ChatAgent } from "../server";
 import { LLAMA_3_3_MODEL } from "../workers-ai";
 import { explainFindings } from "./explain-findings";
 import { scanRepository } from "./scan-repository";
+import type { ScanStage } from "./scan-status";
 
-/** Input for one scan; the chat agent starts it from the scan_repo tool. */
+/** Input for one scan; the chat agent starts it from ChatAgent.startScan. */
 export type ScanParams = { readonly repoUrl: string };
+
+type ScanProgress = { readonly stage: ScanStage };
 
 // Download and checks: a GitHub or network hiccup is worth two quick retries.
 const SCAN_STEP = {
@@ -34,7 +37,11 @@ const POST_STEP = {
  * failed explanation never downloads the repository again. Unhandled errors reach the agent's
  * onWorkflowError through AgentWorkflow.
  */
-export class ScanWorkflow extends AgentWorkflow<ChatAgent, ScanParams> {
+export class ScanWorkflow extends AgentWorkflow<
+  ChatAgent,
+  ScanParams,
+  ScanProgress
+> {
   async run(
     event: AgentWorkflowEvent<ScanParams>,
     step: AgentWorkflowStep
@@ -51,6 +58,7 @@ export class ScanWorkflow extends AgentWorkflow<ChatAgent, ScanParams> {
       }
     });
 
+    await this.reportStage("explaining");
     const workersAi = createWorkersAI({ binding: this.env.AI });
     // The findings stand on their own, so a model outage must not fail the scan.
     const explanation = await step
@@ -62,8 +70,16 @@ export class ScanWorkflow extends AgentWorkflow<ChatAgent, ScanParams> {
         return null;
       });
 
+    await this.reportStage("posting");
     await step.do("post report", POST_STEP, () =>
       this.agent.saveScan(this.workflowId, report, explanation)
     );
+  }
+
+  // Progress only drives the UI's status line, so failing to report it must not fail the scan.
+  private async reportStage(stage: ScanStage): Promise<void> {
+    await this.reportProgress({ stage }).catch((error: unknown) => {
+      console.warn(`Could not report scan stage "${stage}".`, error);
+    });
   }
 }

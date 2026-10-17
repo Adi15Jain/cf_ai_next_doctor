@@ -1,4 +1,4 @@
-import type { Finding } from "../checks/finding";
+import { countBySeverity, type Finding } from "../checks/finding";
 import { redact } from "../guardrails";
 import { ADAPTER_GUIDANCE } from "../knowledge/adapters";
 import { FAILURES } from "../knowledge/failures";
@@ -19,7 +19,7 @@ export function formatReport(
     ? `commit \`${report.commitSha.slice(0, SHORT_SHA_CHARS)}\``
     : "commit unknown";
   const sections = [
-    `## Scan of ${report.repoUrl}`,
+    `### Scan of ${report.repoUrl}`,
     `${commit} · adapter **${report.adapter}** · ${countSummary(report.findings)}`,
     `> ${guidance.advice} [Cloudflare docs](${guidance.docUrl})`
   ];
@@ -35,9 +35,9 @@ export function formatReport(
     return sections.join("\n\n");
   }
   sections.push(
-    "### Findings",
+    "#### Findings",
     report.findings.map(formatFinding).join("\n"),
-    "### What to do first",
+    "#### What to do first",
     explanation ??
       "_The AI explanation is unavailable right now. The findings above are complete._"
   );
@@ -53,13 +53,12 @@ function formatFinding(finding: Finding, index: number): string {
   // Double backticks let the evidence contain single backticks, as template literals do.
   return [
     `${index + 1}. **${severity}:** ${entry.title}${place}`,
-    `   Found: \`\` ${redact(finding.evidence)} \`\``,
-    `   Fix: ${entry.fix} [Docs](${entry.docUrl})`
+    `   - Found: \`\` ${redact(finding.evidence)} \`\``,
+    `   - Fix: ${entry.fix} [Docs](${entry.docUrl})`
   ].join("\n");
 }
 
 function countSummary(findings: readonly Finding[]): string {
-  const errors = findings.filter((finding) => finding.severity === "error");
-  const warnings = findings.length - errors.length;
-  return `${errors.length} error${errors.length === 1 ? "" : "s"}, ${warnings} warning${warnings === 1 ? "" : "s"}`;
+  const { errors, warnings } = countBySeverity(findings);
+  return `${errors} error${errors === 1 ? "" : "s"}, ${warnings} warning${warnings === 1 ? "" : "s"}`;
 }

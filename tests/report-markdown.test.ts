@@ -31,7 +31,7 @@ const FINDINGS: readonly Finding[] = [
 describe("formatReport", () => {
   it("says no known problems were found, with the adapter advice and its link", () => {
     const markdown = formatReport(REPORT, null);
-    expect(markdown).toContain("## Scan of https://github.com/acme/shop");
+    expect(markdown).toContain("### Scan of https://github.com/acme/shop");
     expect(markdown).toContain(
       "commit `4ea6a72` · adapter **opennext** · 0 errors, 0 warnings"
     );
@@ -39,7 +39,7 @@ describe("formatReport", () => {
       "(https://developers.cloudflare.com/workers/framework-guides/web-apps/opennext/)"
     );
     expect(markdown).toContain("No known problems found.");
-    expect(markdown).not.toContain("### Findings");
+    expect(markdown).not.toContain("#### Findings");
   });
 
   it("lists every finding from the report, then the model's explanation", () => {
@@ -53,7 +53,10 @@ describe("formatReport", () => {
     );
     expect(markdown).toContain("2. **Warning:**");
     expect(markdown).toContain("`package.json`");
-    expect(markdown.indexOf("### Findings")).toBeLessThan(
+    expect(markdown).toContain(
+      '   - Found: `` export const runtime = "edge" ``'
+    );
+    expect(markdown.indexOf("#### Findings")).toBeLessThan(
       markdown.indexOf("Remove the edge runtime first.")
     );
   });

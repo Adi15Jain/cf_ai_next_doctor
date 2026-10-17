@@ -1,6 +1,7 @@
 import type { Tool } from "ai";
 import { describe, expect, it } from "vitest";
 import { createChatTools } from "../src/chat-tools";
+import { formatRepoUrl, parseRepoUrl } from "../src/github/repo-url";
 import { ScanHistory } from "../src/scan/scan-history";
 import { inMemorySql } from "./sqlite";
 
@@ -15,14 +16,22 @@ async function run<Input, Output>(
   return tool.execute(input, CALL_OPTIONS);
 }
 
-/** Tools wired to an in-memory history and a scan starter that records its calls. */
+/**
+ * Tools wired to an in-memory history and a scan starter that validates the URL as the
+ * agent does, but records the scan instead of starting a Workflow.
+ */
 function toolsWithFakes() {
   const startedScans: string[] = [];
   const history = new ScanHistory(inMemorySql());
   const tools = createChatTools({
     startScan: async (repoUrl) => {
-      startedScans.push(repoUrl);
-      return `scan-${startedScans.length}`;
+      const canonicalUrl = formatRepoUrl(parseRepoUrl(repoUrl));
+      startedScans.push(canonicalUrl);
+      return {
+        scanId: `scan-${startedScans.length}`,
+        repoUrl: canonicalUrl,
+        stage: "scanning"
+      };
     },
     history
   });
