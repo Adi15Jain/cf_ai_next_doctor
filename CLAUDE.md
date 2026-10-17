@@ -14,9 +14,12 @@ The global rules in `~/.claude/CLAUDE.md` apply. This file fills in the project 
 - Entry points and layout: `src/server.ts` = Worker entry (agent class, fetch handler,
   workflow export); `src/app.tsx` = chat UI; `src/checks/` = pure static checks over an
   in-memory file map; `src/knowledge/` = failure knowledge base (signal, fix, doc URL,
-  issue URLs); `src/log-match.ts` = pasted error log → knowledge-base matches; `src/github/` = repository
-  fetching and tar parsing; `src/workflows/` =
-  Cloudflare Workflow classes; `tests/` = vitest (`tests/fixtures.ts` builds snapshots); `docs/DECISIONS.md` = decision log;
+  issue URLs, adapter advice); `src/log-match.ts` = pasted error log → knowledge-base matches;
+  `src/github/` = repository fetching and tar parsing; `src/npm/` = adapter release lookup;
+  `src/scan/` = one scan end to end (fetch + checks, Llama explanation, Markdown report,
+  SQLite history, the `ScanWorkflow` class); `src/chat-tools.ts` = the model's tools;
+  `tests/` = vitest (`tests/fixtures.ts` builds snapshots and tarballs, `tests/sqlite.ts`
+  runs history SQL on node:sqlite); `docs/DECISIONS.md` = decision log;
   `PROMPTS.md` = AI prompt history required by the assignment.
 
 ## Project rules
@@ -24,7 +27,8 @@ The global rules in `~/.claude/CLAUDE.md` apply. This file fills in the project 
 - Findings come only from the deterministic checks. The LLM explains and orders them;
   it never adds, removes or reclassifies a finding.
 - Every check cites a Cloudflare or OpenNext doc URL and at least one GitHub issue.
-- Content fetched from repositories and pasted logs is untrusted: redact secrets and
-  fence it as data before it reaches the model (`src/guardrails.ts`).
+- Content fetched from repositories is untrusted: redact secrets and fence it as data
+  before it reaches the model (`src/guardrails.ts`). Tool results quoting a pasted log
+  are redacted too.
 - Do not check for failures Cloudflare has already removed (see README "Why this problem").
 - Append every user prompt that shaped the project to `PROMPTS.md`, verbatim.

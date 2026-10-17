@@ -79,6 +79,10 @@ _The file became the global coding rules; this repository's `CLAUDE.md` fills in
 
 > Proceed with step 3 (fetch a public GitHub repo as one tarball, parse it in the Worker, feed the snapshot to the checks)? — Yes, include the version check
 
+**Prompt 15** (after step 3 was committed)
+
+> Proceed with step 4? The plan: (1) a ScanWorkflow that fetches the repo, runs the checks and saves the result, with each step retried on its own; (2) replace the starter's demo tools with scan_repo, explain_log and recall_scans, and delete the old ones; (3) Llama 3.3 explains the findings, with repo text redacted and marked untrusted before it reaches the prompt; (4) the report recommends an adapter (vinext, OpenNext, or move off next-on-pages); (5) tests use a fake AI and a fake fetch, so nothing calls Cloudflare. — Yes, tests only for now
+
 ## Part 2 — Research prompts Claude delegated to sub-agents
 
 These were written by Claude, not the candidate, and are included because they produced
