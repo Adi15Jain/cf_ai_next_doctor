@@ -11,6 +11,11 @@ export type RepoFiles = {
   readonly commitSha: string | null;
 };
 
+/** GitHub failed in a way that may pass (5xx, rate limit); unlike RepoNotScannableError, worth a retry. */
+export class GitHubUnavailableError extends Error {
+  name = "GitHubUnavailableError";
+}
+
 const CODELOAD_URL = "https://codeload.github.com";
 const DOWNLOAD_TIMEOUT_MS = 20_000;
 // Larger source files are generated or vendored code; skipping them keeps scans fast.
@@ -37,7 +42,7 @@ export async function fetchRepoFiles(
     );
   }
   if (!response.ok || response.body === null) {
-    throw new RepoNotScannableError(
+    throw new GitHubUnavailableError(
       `Expected GitHub to return the repository archive, but got HTTP ${response.status}.`
     );
   }

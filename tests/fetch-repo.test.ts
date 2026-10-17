@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { RepoNotScannableError } from "../src/checks/repo-snapshot";
-import { fetchRepoFiles } from "../src/github/fetch-repo";
+import {
+  fetchRepoFiles,
+  GitHubUnavailableError
+} from "../src/github/fetch-repo";
 import type { RepoLocation } from "../src/github/repo-url";
 import { buildTar, gzip, paxRecord, type TarEntry } from "./fixtures";
 
@@ -80,6 +83,13 @@ describe("fetchRepoFiles", () => {
     );
     await expect(fetchRepoFiles(ROOT, github.fetchFunction)).rejects.toThrow(
       /Private repositories/
+    );
+  });
+
+  it("reports a GitHub server error as retryable, not as a bad repository", async () => {
+    const github = await fakeGitHub([], 503);
+    await expect(fetchRepoFiles(ROOT, github.fetchFunction)).rejects.toThrow(
+      GitHubUnavailableError
     );
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RepoNotScannableError } from "../src/checks/repo-snapshot";
-import { parseRepoUrl } from "../src/github/repo-url";
+import { formatRepoUrl, parseRepoUrl } from "../src/github/repo-url";
 
 describe("parseRepoUrl", () => {
   it("reads owner and repo, defaulting to the default branch and the repo root", () => {
@@ -44,5 +44,23 @@ describe("parseRepoUrl", () => {
     expect(() =>
       parseRepoUrl("https://github.com/acme/shop/blob/main/package.json")
     ).toThrow(/tree/);
+  });
+});
+
+describe("formatRepoUrl", () => {
+  it("gives one key for differently written URLs of the same repository", () => {
+    const written = [
+      "github.com/Vercel/Commerce.git",
+      "https://github.com/vercel/commerce/"
+    ];
+    expect(written.map((url) => formatRepoUrl(parseRepoUrl(url)))).toEqual([
+      "https://github.com/vercel/commerce",
+      "https://github.com/vercel/commerce"
+    ]);
+  });
+
+  it("keeps the ref and subdirectory", () => {
+    const url = "https://github.com/acme/mono/tree/Main/apps/web";
+    expect(formatRepoUrl(parseRepoUrl(url))).toBe(url);
   });
 });

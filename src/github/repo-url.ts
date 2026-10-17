@@ -59,6 +59,20 @@ export function parseRepoUrl(input: string): RepoLocation {
   };
 }
 
+/**
+ * The canonical URL for a location, so one repository is always stored under one key.
+ * Owner and repo are lower-cased because GitHub treats them case-insensitively; the ref
+ * and subdirectory are not, so they are kept as given.
+ */
+export function formatRepoUrl(location: RepoLocation): string {
+  const { owner, repo, ref, subdirectory } = location;
+  const root = `https://github.com/${owner.toLowerCase()}/${repo.toLowerCase()}`;
+  if (ref === DEFAULT_REF && subdirectory === "") return root;
+  return subdirectory === ""
+    ? `${root}/tree/${ref}`
+    : `${root}/tree/${ref}/${subdirectory}`;
+}
+
 function toUrl(text: string): URL | null {
   try {
     return new URL(text);
