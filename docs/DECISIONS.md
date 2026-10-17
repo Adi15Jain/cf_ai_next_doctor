@@ -167,3 +167,10 @@ Context: In the real run, Llama copied the internal ids (`[next-version-unsuppor
 Decision: The prompt labels facts and locations with each finding's title and its severity in brackets. The rules say to keep each severity and to write a numbered list without headings.
 Alternatives: Only tell the model not to repeat ids (it repeats whatever label it is given).
 Consequences: The next run produced a clean, file-by-file list. Prompt wording is now part of the tested surface (`buildExplainPrompt` tests).
+
+## 2026-10-17 — Find the Next.js app folder when the repository root is not one
+
+Context: Scanning one of Adi's own repositories failed with "Expected package.json at the repository root". The Next.js app lived in `web/`, beside Python code. Monorepos (`apps/web`) have the same shape, and a bare failure makes the tool look broken.
+Decision: Nested `package.json` files (outside `node_modules`) are kept with the download. If the root does not depend on `next`, a folder whose `package.json` lists `next` under `dependencies` is scanned instead (a second download). Libraries that list `next` only as a dev dependency are skipped. Several apps produce a list of scan URLs; none produces a plain message.
+Alternatives: Only improve the error (the user pastes a second URL every time); scan every app folder (several reports for one request).
+Consequences: Repositories with one app need no special URL. The Workflow error prefix (`RepoNotScannableError:`) is also stripped from failure cards.

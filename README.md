@@ -94,6 +94,9 @@ chat ─ Llama ┘        ▲  progress, report                  1. scan reposit
   checks, then Llama's explanation. If Workers AI is down, the report is posted without it.
 - **Repository text is untrusted.** Paths and evidence lines go into the prompt inside one
   `<untrusted>` fence, with tokens, keys and emails redacted ([src/guardrails.ts](src/guardrails.ts)).
+- **Monorepos work.** If the repository root is not a Next.js app, the scanner looks for the
+  folder whose `package.json` depends on `next` and scans that. If there are several, it
+  lists a scan URL for each. A `/tree/<branch>/<folder>` URL picks a folder directly.
 - **One download per scan.** The repository arrives as a single codeload tarball, read as a
   stream, and only the files the checks need are kept: one subrequest, and no GitHub token.
 

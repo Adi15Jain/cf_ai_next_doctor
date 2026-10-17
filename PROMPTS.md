@@ -93,6 +93,20 @@ _The file became the global coding rules; this repository's `CLAUDE.md` fills in
 > Create the GitHub repo Adi15Jain/cf_ai_next_doctor and push the project there? — Yes, public repo
 > Which public Next.js repo should the README demo (and the screenshot of a real scan) use? — Pick one I scanned
 
+**Prompt 18** (after the first real run on Workers AI found and fixed the empty tool-argument bug)
+
+> good, now how to test this?
+
+**Prompt 19** (after scanning one of the candidate's own repositories, whose Next.js app lives in `web/`)
+
+> [pasted failure card: "The scan of https://github.com/adi15jain/lmc_solution failed. RepoNotScannableError: Expected package.json at the repository root, but found none."]
+>
+> Booo, failed????
+
+**Prompt 20** (after Claude proposed finding the app folder automatically)
+
+> Let us now complete this and submit it, because I want to close this thing now!
+
 ## Part 2 — Research prompts Claude delegated to sub-agents
 
 These were written by Claude, not the candidate, and are included because they produced
