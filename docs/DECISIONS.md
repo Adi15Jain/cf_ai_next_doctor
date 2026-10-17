@@ -153,3 +153,17 @@ Context: The only logged-in Cloudflare account appears to be a work account. Mea
 Decision: Adi chose not to deploy. The README covers a full local run with `wrangler login`, a run with no account (`CLOUDFLARE_VITE_FORCE_LOCAL=true`), and deployment on Workers Paid.
 Alternatives: Deploy to the work account (wrong owner for a job application); deploy on the free plan (scans would exceed the CPU limit).
 Consequences: Reviewers run it locally. A real end-to-end check with Workers AI is still to be done.
+
+## 2026-10-17 — Ask Workers AI for whole responses in the chat
+
+Context: The first run against the real model failed every tool call. Llama 3.3 called the right tools, but every one received `{}`. The raw stream showed why: Workers AI sends each tool-call fragment twice (in `choices[0].delta.tool_calls` and in a top-level `tool_calls`), and workers-ai-provider 3.3.1 appends both, so the argument JSON is doubled and unparseable. Version 4.0.0 has the same code and needs AI SDK v7.
+Decision: `withoutStreaming()` wraps the AI binding so `run()` always asks for a whole response. The provider reads a whole response through a separate path that takes each tool call once.
+Alternatives: Patch the provider in node_modules (lost on install, unreviewable); re-parse the SSE stream ourselves (more code than the bug); a different model (the assignment suggests Llama 3.3).
+Consequences: Chat replies appear all at once, after a few seconds. The Proxy is one function with a test, so it is simple to remove once the provider is fixed upstream.
+
+## 2026-10-17 — Key the explanation prompt by finding title, not id
+
+Context: In the real run, Llama copied the internal ids (`[next-version-unsupported]`) into its answer, called three warnings "critical errors", and added large headings.
+Decision: The prompt labels facts and locations with each finding's title and its severity in brackets. The rules say to keep each severity and to write a numbered list without headings.
+Alternatives: Only tell the model not to repeat ids (it repeats whatever label it is given).
+Consequences: The next run produced a clean, file-by-file list. Prompt wording is now part of the tested surface (`buildExplainPrompt` tests).

@@ -12,10 +12,10 @@ remove a finding.
 Built for Cloudflare's AI application assignment. The AI prompts used to build it are in
 [PROMPTS.md](PROMPTS.md), and the design decisions in [docs/DECISIONS.md](docs/DECISIONS.md).
 
-![A scan report for a public OpenNext app: three warnings, each with the file, the evidence, the fix and a doc link](docs/screenshot-report.png)
+![A chat asking to check a public OpenNext app: the agent starts a scan, and the report card lists three warnings with file, evidence, fix and docs, followed by Llama 3.3's prioritised fixes](docs/screenshot-report.png)
 
-_The screenshot was taken locally with Workers AI switched off (see "Run without a Cloudflare
-account"), so "What to do first" shows the fallback text instead of Llama 3.3's explanation._
+_A real run: Llama 3.3 on Workers AI called `scan_repo`, the Workflow scanned the repository,
+and the report arrived about 10 seconds later._
 
 ## Run it locally
 
@@ -144,6 +144,10 @@ size limit, removed on 2026-09-04) and are deliberately not checked.
 - **Declared version ranges, not the lockfile.** The version check reasons over every
   release `package.json` allows instead of reading four lockfile formats.
 - **Pasted logs reach the model as typed.** Only quoted lines are redacted.
+- **Chat replies arrive whole, not word by word.** workers-ai-provider 3.3.1 reads every
+  streamed tool-call fragment from Workers AI twice, which corrupts tool arguments, so the
+  chat asks for whole responses ([src/workers-ai.ts](src/workers-ai.ts)). With a fixed
+  provider, streaming can come back.
 
 ## Credits
 
